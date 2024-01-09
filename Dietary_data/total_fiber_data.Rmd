@@ -1,0 +1,54 @@
+---
+title: "fiber_data"
+author: "Jie Zhu"
+date: "2024-01-09"
+output: html_document
+---
+
+```{r}
+# clears all objects that do not start with a period from the workspace
+rm(list =ls())
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(openxlsx)
+library(data.table)
+library(ggplot2)
+library(readr)
+library(writexl)
+library(readxl)
+```
+```{r}
+# Open all data
+X1999_2000 <- read_excel("1999-2000daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2001_2002 <- read_excel("2001-2002daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2003_2004 <- read_excel("2003-2004daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2005_2006 <- read_excel("2005-2006daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2007_2008 <- read_excel("2007-2008daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2009_2010 <- read_excel("2009-2010daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2011_2012 <- read_excel("2011-2012daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2013_2014 <- read_excel("2013-2014daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2015_2016 <- read_excel("2015-2016daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+X2017_2020 <- read_excel("2017-2020daysmean.xlsx") %>% select(SEQN,DR_MEAN,YEAR)
+```
+
+```{r}
+# Combine all the data
+Total_fiber_data <- rbind(X1999_2000,
+                          X2001_2002,
+                          X2003_2004,
+                          X2005_2006,
+                          X2007_2008,
+                          X2009_2010,
+                          X2011_2012,
+                          X2013_2014,
+                          X2015_2016,
+                          X2017_2020)
+head(Total_fiber_data)
+```
+```{r}
+# Save to Excel
+write_xlsx(Total_fiber_data, "C:/Users/auror/OneDrive/桌面/Dietary_data/Fiber_data.xlsx")
+```
