@@ -3,7 +3,9 @@ Main Data Analysis
 Yangyang Chen
 2024-01-11
 
-## Importing dataframe
+## Data
+
+### Importing dataframe
 
 ``` r
 load("~/Desktop/2024_DataFest/main_data/nhanes_data.rda")
@@ -48,11 +50,8 @@ df_17 =
   readxl::read_xlsx("Dietary_data/2017-2020daysmean.xlsx") |> 
   rename(MEAN_FIBER = DR_MEAN) |> 
   select(SEQN, MEAN_FIBER, YEAR)
-```
 
-## Combining Fiber Data
-
-``` r
+# Combining Fiber Data
 fiber_df =   
   df_99 |> 
   rbind(df_01) |> 
@@ -66,7 +65,7 @@ fiber_df =
   rbind(df_17)
 ```
 
-## Data Cleaning
+### Data Cleaning - Filter female data
 
 ``` r
 fiber_tidy_df = 
@@ -80,14 +79,15 @@ fiber_tidy_df =
 main_df =
   main_df |> 
   filter(demo_gender == "Women")
-```
 
-## Combining main data and fiber data, and remove NA
-
-``` r
+# Combining main data and fiber data, and remove NA
 df = 
   left_join(fiber_tidy_df, main_df) |> 
   drop_na()
 ```
 
     ## Joining with `by = join_by(svy_id, svy_year)`
+
+## Exploratory Data Analysis
+
+### Survey variables
