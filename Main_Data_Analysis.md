@@ -76,10 +76,6 @@ fiber_tidy_df =
     svy_year = year
          ) 
 
-main_df =
-  main_df |> 
-  filter(demo_gender == "Women")
-
 # Combining main data and fiber data, and remove NA
 df = 
   left_join(fiber_tidy_df, main_df) |> 
