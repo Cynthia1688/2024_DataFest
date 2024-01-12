@@ -1,7 +1,7 @@
 Main Data Analysis
 ================
 Yangyang Chen
-2024-01-11
+2024-01-12
 
 ## Data
 
@@ -85,5 +85,9 @@ df =
     ## Joining with `by = join_by(svy_id, svy_year)`
 
 ## Exploratory Data Analysis
+
+``` r
+# significant predictors of poor BP control
+```
 
 ### Survey variables
