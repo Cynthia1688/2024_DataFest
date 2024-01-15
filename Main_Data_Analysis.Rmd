@@ -112,6 +112,33 @@ df =
 
 ```{r}
 # significant predictors of poor BP control
+
+library(ggplot2)
+library(dplyr)
+library(summarytools)
+
+# Assuming your dataset is named 'your_data'
+# Replace 'your_data' with the actual name of your dataset
+
+# Summary statistics
+data_summary <- dfSummary(df)
+
+# Histogram of mean_fiber
+ggplot(df, aes(x = mean_fiber)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of Mean Fiber", x = "Mean Fiber", y = "Frequency")
+
+# Boxplot of mean_fiber by demo_race
+ggplot(df, aes(x = demo_race, y = mean_fiber, fill = demo_race)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Mean Fiber by Race", x = "Race", y = "Mean Fiber")
+
+# Scatter plot of bp_sys_mean vs bp_dia_mean
+ggplot(df, aes(x = bp_sys_mean, y = bp_dia_mean, color = demo_race)) +
+  geom_point() +
+  labs(title = "Scatter Plot of Systolic vs Diastolic Blood Pressure",
+       x = "Systolic Blood Pressure", y = "Diastolic Blood Pressure")
+
 ```
 
 
