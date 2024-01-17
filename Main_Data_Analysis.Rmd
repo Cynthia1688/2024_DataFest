@@ -11,6 +11,15 @@ library(viridis)
 library(modelr)
 library(mgcv)
 library(latex2exp)
+library(broom)
+library(ggplot2)
+library(dplyr)
+library(summarytools)
+library(writexl)
+library(tidymodels)
+library(randomForest)
+library(caret)
+library(ranger)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -106,20 +115,21 @@ fiber_tidy_df =
 df = 
   left_join(fiber_tidy_df, main_df) |> 
   drop_na()
+
+# Determine the BP as our dependent variable --> create a new binary column called bp: uncontrolled(0): SBP > 140 or DBP > 90 and controlled(1): SBP < 140 and DBP < 90. 
+df_with_bp <-
+  df %>%
+  mutate(bp = ifelse(bp_sys_mean < 140 & bp_dia_mean < 90, "controlled", "uncontrolled"))
+# remove the unnecessary bp columns
+df_with_bp_2 <-
+  df_with_bp %>% 
+  select(-contains('bp_'))%>%
+  relocate(bp, .after = svy_year)
 ```
 
 ## Exploratory Data Analysis
 
 ```{r}
-# significant predictors of poor BP control
-
-library(ggplot2)
-library(dplyr)
-library(summarytools)
-
-# Assuming your dataset is named 'your_data'
-# Replace 'your_data' with the actual name of your dataset
-
 # Summary statistics
 data_summary <- dfSummary(df)
 
@@ -139,11 +149,120 @@ ggplot(df, aes(x = bp_sys_mean, y = bp_dia_mean, color = demo_race)) +
   labs(title = "Scatter Plot of Systolic vs Diastolic Blood Pressure",
        x = "Systolic Blood Pressure", y = "Diastolic Blood Pressure")
 
+df %>%
+  ggplot(aes(x = bp_sys_mean, fill = demo_race)) +
+  geom_density(alpha = 0.7) +
+  labs(title = "Grouped Density Plot of Systolic Blood Pressure by Race", x = "Systolic Blood Pressure") +
+  theme_minimal()
+
+df %>%
+  ggplot(aes(x = bp_sys_mean)) +
+  geom_histogram(binwidth = 5, fill = "lightblue", color = "black", alpha = 0.7) +
+  geom_density(color = "darkred", size = 1) +
+  labs(title = "Histogram with Density Plot of Systolic Blood Pressure", x = "Systolic Blood Pressure") +
+  theme_minimal()
 ```
 
-
-### Survey variables
+## Random Forests
 ```{r}
-
+# Remove unnecessary data
+data <- 
+  df_with_bp_2 %>%
+  select(-c(svy_id,svy_year,svy_subpop_htn,svy_subpop_chol,demo_age_years))%>%
+  mutate(bp = factor(bp))
+# Factor all the categorical data
+is.fact <- sapply(data, is.factor)
+data_categroies <- 
+  data[, is.fact]%>%
+  mutate_all(~factor(.))
+data_categroies
+# A dataframe with all numerical data in data
+data_numerical <- 
+  select_if(data, is.numeric)
+data_numerical
+#Combine categorical data and numerical data frame
+data_final = cbind(data_numerical, data_categroies)
 ```
+
+
+```{r}
+index = caret::createDataPartition(data_final$bp,p=0.7,list = FALSE)
+train_df = data_final[index, ]
+test_df = data_final[-index, ]
+#randomForest_model = ranger(formula = bp ~ ., data = train_df)
+#randomForest_model = train(bp~., 
+ #                data = train_df, 
+ #               method = "ranger")
+randomForest_model = randomForest(bp~.,data= train_df,importance=TRUE, ntree=300)
+```
+```{r}
+prediction = predict(randomForest_model,test_df)
+confustion_matrix = table(prediction, test_df$bp)
+accuracy = sum(diag(confustion_matrix))/sum(confustion_matrix)
+cat("Accuracy",accuracy,"\n")
+confustion_matrix %>%
+  knitr::kable(caption="Confusion Matrix of randomForest")
+```
+
+```{r}
+importance = varImp(randomForest_model)
+varImpPlot(randomForest_model, main = "The Gini Coefficient of the RF")
+```
+
+### Logistics Regression
+
+```{r}
+# Create binary variable for 'bp_uncontrolled_jnc7'
+df_with_bp_2 = df_with_bp_2 |> 
+  mutate(
+    bp_binary = as.integer(bp == 'controlled'),
+    chol_nonhdl_lt_100_binary = as.integer(chol_nonhdl_lt_100 == 'Yes'), 
+    chol_nonhdl_gteq_100_binary = as.integer(chol_nonhdl_gteq_100 == 'Yes'),	
+    chol_nonhdl_gteq_220_binary = as.integer(chol_nonhdl_gteq_220 == 'Yes'),
+    chol_med_use_binary = as.integer(chol_med_use == 'Yes'),	
+    chol_med_use_sr_binary = as.integer(chol_med_use_sr == 'Yes'),
+    chol_med_statin_binary = as.integer(chol_med_statin == 'Yes'),
+    chol_med_ezetimibe_binary = as.integer(chol_med_ezetimibe == 'Yes'),	
+    chol_med_pcski_binary = as.integer(chol_med_pcsk9i == 'Yes'),	
+    chol_med_bile_binary = as.integer(chol_med_bile == 'Yes'),	
+    chol_med_fibric_acid_binary = as.integer(chol_med_fibric_acid == 'Yes'),
+    chol_med_atorvastatin_binary = as.integer(chol_med_atorvastatin == 'Yes'),
+    chol_med_simvastatin_binary = as.integer(chol_med_simvastatin == 'Yes'),
+    chol_med_rosuvastatin_binary = as.integer(chol_med_rosuvastatin == "Yes"),
+    chol_med_pravastatin_binary = as.integer(chol_med_pravastatin == 'Yes'),
+    chol_med_pitavastatin_binary = as.integer(chol_med_pitavastatin == "Yes"),
+    chol_med_fluvastatin_binary = as.integer(chol_med_fluvastatin == "Yes"),	
+    chol_med_lovastatin_binary = as.integer(chol_med_lovastatin == "Yes"),	
+    chol_med_other_binary = as.integer(chol_med_other == "Yes"),	
+    chol_med_addon_use_binary =	as.integer(chol_med_addon_use == "Yes"),
+    chol_med_addon_recommended_ahaacc_binary =	as.integer(chol_med_addon_recommended_ahaacc == "Yes"),	
+    chol_med_statin_recommended_ahaacc_binary =	as.integer(chol_med_statin_recommended_ahaacc == "Yes")
+    ) 
+
+# Select relevant variables
+selected_vars <- c("mean_fiber",	"svy_weight_mec", "svy_psu", "svy_strata",	"chol_total",	"chol_hdl",	"chol_trig","chol_nonhdl","chol_nonhdl","demo_age_cat","demo_race","demo_race_black","demo_pregnant","demo_gender", "bp_binary")
+df_with_bp_2 <- df_with_bp_2 %>% select(all_of(selected_vars))
+
+# Create logistic regression model using tidyverse functions
+logit_model <- glm(bp_binary ~ ., data = df_with_bp_2, family = "binomial")
+
+# Display model summary
+tidy_logit <- tidy(logit_model)
+glance_logit <- glance(logit_model)
+conf_int <- confint(logit_model)
+
+# Display results
+tidy_logit
+glance_logit
+conf_int
+```
+
+
+
+<!-- ```{r} -->
+<!-- bp_df <-  -->
+<!--   df %>% -->
+<!--   filter(bp_uncontrolled_jnc7 == "Yes") ## If the value for this variable is 'Yes', it indicates that the blood pressure is uncontrolled based on the JNC7 guideline (systolic BP >= 140 mm Hg or diastolic BP >= 90 mm Hg for those without diabetes and without chronic kidney disease). -->
+
+<!-- ``` -->
 
