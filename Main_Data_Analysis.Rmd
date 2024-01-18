@@ -20,6 +20,9 @@ library(tidymodels)
 library(randomForest)
 library(caret)
 library(ranger)
+library(stargazer)
+library(ROCR)
+
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -100,7 +103,7 @@ fiber_df =
   rbind(df_15) |> 
   rbind(df_17)
 ```
-### Data Cleaning - Filter female data
+### Data Cleaning
 
 ```{r}
 fiber_tidy_df = 
@@ -130,6 +133,33 @@ df_with_bp_2 <-
 ## Exploratory Data Analysis
 
 ```{r}
+table_gender = 
+df_with_bp_2 %>%
+  group_by(demo_gender) %>%
+  summarise(
+    Count = n(), # total number of entries for each gender
+    Controlled = sum(bp == "controlled"), # number of outcomes with value 0
+    Uncontrolled = sum(bp == "uncontrolled"), # number of outcomes with value 1
+    Percentage = Controlled/Count
+  ) %>%
+  knitr::kable(digits = 3)  
+```
+
+```{r}
+# Define age intervals
+age_breaks <- c(-Inf, 18, 45, 65, 75, Inf)
+age_labels <- c("Under 18",'18-44', '45-64', '65-74', 'Over 75')
+
+# Create age groups and summarize outcomes
+df_with_bp_2 %>%
+  mutate(Age_group = cut(demo_age_years, breaks = age_breaks, labels = age_labels, right = FALSE)) %>%
+  group_by(demo_age_cat) %>%
+  summarise(Count = n(),
+            Controlled = sum(bp == "controlled", na.rm = TRUE),
+            Uncontrolled = sum(bp == "uncontrolled", na.rm = TRUE),
+            Percentage = Controlled/(Controlled + Uncontrolled)) %>%
+  knitr::kable(digits = 3)  
+
 # Summary statistics
 data_summary <- dfSummary(df)
 
@@ -212,57 +242,55 @@ varImpPlot(randomForest_model, main = "The Gini Coefficient of the RF")
 ### Logistics Regression
 
 ```{r}
-# Create binary variable for 'bp_uncontrolled_jnc7'
-df_with_bp_2 = df_with_bp_2 |> 
-  mutate(
-    bp_binary = as.integer(bp == 'controlled'),
-    chol_nonhdl_lt_100_binary = as.integer(chol_nonhdl_lt_100 == 'Yes'), 
-    chol_nonhdl_gteq_100_binary = as.integer(chol_nonhdl_gteq_100 == 'Yes'),	
-    chol_nonhdl_gteq_220_binary = as.integer(chol_nonhdl_gteq_220 == 'Yes'),
-    chol_med_use_binary = as.integer(chol_med_use == 'Yes'),	
-    chol_med_use_sr_binary = as.integer(chol_med_use_sr == 'Yes'),
-    chol_med_statin_binary = as.integer(chol_med_statin == 'Yes'),
-    chol_med_ezetimibe_binary = as.integer(chol_med_ezetimibe == 'Yes'),	
-    chol_med_pcski_binary = as.integer(chol_med_pcsk9i == 'Yes'),	
-    chol_med_bile_binary = as.integer(chol_med_bile == 'Yes'),	
-    chol_med_fibric_acid_binary = as.integer(chol_med_fibric_acid == 'Yes'),
-    chol_med_atorvastatin_binary = as.integer(chol_med_atorvastatin == 'Yes'),
-    chol_med_simvastatin_binary = as.integer(chol_med_simvastatin == 'Yes'),
-    chol_med_rosuvastatin_binary = as.integer(chol_med_rosuvastatin == "Yes"),
-    chol_med_pravastatin_binary = as.integer(chol_med_pravastatin == 'Yes'),
-    chol_med_pitavastatin_binary = as.integer(chol_med_pitavastatin == "Yes"),
-    chol_med_fluvastatin_binary = as.integer(chol_med_fluvastatin == "Yes"),	
-    chol_med_lovastatin_binary = as.integer(chol_med_lovastatin == "Yes"),	
-    chol_med_other_binary = as.integer(chol_med_other == "Yes"),	
-    chol_med_addon_use_binary =	as.integer(chol_med_addon_use == "Yes"),
-    chol_med_addon_recommended_ahaacc_binary =	as.integer(chol_med_addon_recommended_ahaacc == "Yes"),	
-    chol_med_statin_recommended_ahaacc_binary =	as.integer(chol_med_statin_recommended_ahaacc == "Yes")
-    ) 
+convert_to_factor <- function(df, columns) {
+  df[columns] <- lapply(df[columns], factor)
+  return(df)
+}
 
-# Select relevant variables
-selected_vars <- c("mean_fiber",	"svy_weight_mec", "svy_psu", "svy_strata",	"chol_total",	"chol_hdl",	"chol_trig","chol_nonhdl","chol_nonhdl","demo_age_cat","demo_race","demo_race_black","demo_pregnant","demo_gender", "bp_binary")
-df_with_bp_2 <- df_with_bp_2 %>% select(all_of(selected_vars))
+df_tidy = 
+  df_with_bp_2 |>
+  convert_to_factor(c("bp", "demo_age_cat", "demo_race", "demo_race_black", "demo_pregnant", "demo_gender", "htn_jnc7",	"htn_accaha",	"htn_escesh",	"htn_aware",	"htn_resistant_jnc7",	"htn_resistant_accaha",	"htn_resistant_jnc7_thz",	"htn_resistant_accaha_thz",	"chol_measured_never",	"chol_measured_last", "chol_total_gteq_200",	"chol_total_gteq_240", "chol_hdl_low", "chol_trig_gteq_150", "chol_ldl_5cat",	"chol_ldl_lt_70",	"chol_ldl_gteq_70",	"chol_ldl_lt_100",	"chol_ldl_gteq_100",	"chol_ldl_gteq_190",	"chol_ldl_persistent", "chol_nonhdl_5cat",	"chol_nonhdl_lt_100",	"chol_nonhdl_gteq_100",	"chol_nonhdl_gteq_220",	"chol_med_use",	"chol_med_use_sr",	"chol_med_statin",	"chol_med_ezetimibe",	"chol_med_pcsk9i",	"chol_med_bile",	"chol_med_fibric_acid",	"chol_med_atorvastatin", 	"chol_med_simvastatin",	"chol_med_rosuvastatin",	"chol_med_pravastatin",	"chol_med_pitavastatin",	"chol_med_fluvastatin",	"chol_med_lovastatin",	"chol_med_other",	"chol_med_addon_use",	"chol_med_addon_recommended_ahaacc",	"chol_med_statin_recommended_ahaacc",	"chol_med_recommended_ever",	"ascvd_risk_vh_ahaacc",	"cc_smoke",	"cc_bmi",	"cc_diabetes",	"cc_ckd",	"cc_cvd_mi",	"cc_cvd_chd",	"cc_cvd_stroke",	"cc_cvd_ascvd",	"cc_cvd_hf",	"cc_cvd_any"))
 
-# Create logistic regression model using tidyverse functions
-logit_model <- glm(bp_binary ~ ., data = df_with_bp_2, family = "binomial")
+df_tidy = 
+  df_tidy |> 
+  select(-c(svy_year,svy_id, svy_subpop_htn, svy_subpop_chol, demo_race_black, htn_escesh, chol_ldl_lt_70, chol_ldl_gteq_70, chol_ldl_lt_100, chol_ldl_gteq_100, chol_ldl_gteq_190, chol_nonhdl, chol_nonhdl_lt_100, chol_nonhdl_gteq_100, chol_nonhdl_gteq_220)) 
+glm_complete = glm(bp ~ ., data = df_tidy, family = binomial(link = logit))
+stepwise_complete = stats::step(glm_complete)
 
-# Display model summary
-tidy_logit <- tidy(logit_model)
-glance_logit <- glance(logit_model)
-conf_int <- confint(logit_model)
+table_step = 
+stepwise_complete |>
+  broom::tidy() |>
+  select(term, estimate, p.value) |>
+  arrange(desc(p.value)) |> 
+  knitr::kable(
+    caption = "Estimate and P-value of Generalized Linear Model Using All Patients Data", 
+    col.names = c("Predictor", "Estimate", "P-value"),
+    digits = 3
+  ) |>
+    kableExtra::kable_styling(
+    "basic",
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+    position = "center", 
+    font_size = 16, 
+    latex_options = c("hold_position")
+  )
+table_step
 
-# Display results
-tidy_logit
-glance_logit
-conf_int
+##ROC Curve
+logistics_validation =
+  df_tidy |>
+  filter(demo_age_cat == "45 to 64")
+predict = predict(stepwise_complete, newdata = logistics_validation, type = "response")
+pred = prediction(predictions = predict, labels = logistics_validation$bp)
+roc = performance(pred, "tpr", "fpr")
+auc = performance(pred, measure = "auc")@y.values[[1]]
+
+plot(roc, colorize = F)
+title(main = "The ROC Curve of Generalized Linear Model")
 ```
 
 
 
-<!-- ```{r} -->
-<!-- bp_df <-  -->
-<!--   df %>% -->
-<!--   filter(bp_uncontrolled_jnc7 == "Yes") ## If the value for this variable is 'Yes', it indicates that the blood pressure is uncontrolled based on the JNC7 guideline (systolic BP >= 140 mm Hg or diastolic BP >= 90 mm Hg for those without diabetes and without chronic kidney disease). -->
 
-<!-- ``` -->
 

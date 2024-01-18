@@ -1,7 +1,7 @@
 Main Data Analysis
 ================
 Yangyang Chen
-2024-01-16
+2024-01-17
 
 ## Data
 
@@ -65,7 +65,7 @@ fiber_df =
   rbind(df_17)
 ```
 
-### Data Cleaning - Filter female data
+### Data Cleaning
 
 ``` r
 fiber_tidy_df = 
@@ -99,25 +99,40 @@ df_with_bp_2 <-
 ## Exploratory Data Analysis
 
 ``` r
-# Summary statistics
-data_summary <- dfSummary(df)
-
-# Histogram of mean_fiber
-ggplot(df, aes(x = mean_fiber)) +
-  geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
-  labs(title = "Distribution of Mean Fiber", x = "Mean Fiber", y = "Frequency")
+table_gender = 
+df_with_bp_2 %>%
+  group_by(demo_gender) %>%
+  summarise(
+    Count = n(), # total number of entries for each gender
+    Controlled = sum(bp == "controlled"), # number of outcomes with value 0
+    Uncontrolled = sum(bp == "uncontrolled"), # number of outcomes with value 1
+    Percentage = Controlled/Count
+  ) %>%
+  knitr::kable(digits = 3)  
 ```
-
-<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-4-1.png" width="90%" />
 
 ``` r
-# Boxplot of mean_fiber by demo_race
-ggplot(df, aes(x = demo_race, y = mean_fiber, fill = demo_race)) +
-  geom_boxplot() +
-  labs(title = "Boxplot of Mean Fiber by Race", x = "Race", y = "Mean Fiber")
+# Define age intervals
+age_breaks <- c(-Inf, 18, 45, 65, 75, Inf)
+age_labels <- c("Under 18",'18-44', '45-64', '65-74', 'Over 75')
+
+# Create age groups and summarize outcomes
+df_with_bp_2 %>%
+  mutate(Age_group = cut(demo_age_years, breaks = age_breaks, labels = age_labels, right = FALSE)) %>%
+  group_by(demo_age_cat) %>%
+  summarise(Count = n(),
+            Controlled = sum(bp == "controlled", na.rm = TRUE),
+            Uncontrolled = sum(bp == "uncontrolled", na.rm = TRUE),
+            Percentage = Controlled/(Controlled + Uncontrolled)) %>%
+  knitr::kable(digits = 3)  
 ```
 
-<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-4-2.png" width="90%" />
+| demo_age_cat | Count | Controlled | Uncontrolled | Percentage |
+|:-------------|------:|-----------:|-------------:|-----------:|
+| 18 to 44     |  7399 |       6908 |          491 |      0.934 |
+| 45 to 64     |  6294 |       4926 |         1368 |      0.783 |
+| 65 to 74     |  2529 |       1680 |          849 |      0.664 |
+| 75+          |  1799 |        986 |          813 |      0.548 |
 
 ``` r
 # Scatter plot of bp_sys_mean vs bp_dia_mean
@@ -127,7 +142,7 @@ ggplot(df, aes(x = bp_sys_mean, y = bp_dia_mean, color = demo_race)) +
        x = "Systolic Blood Pressure", y = "Diastolic Blood Pressure")
 ```
 
-<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-4-3.png" width="90%" />
+<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-5-1.png" width="90%" />
 
 ``` r
 df %>%
@@ -137,7 +152,7 @@ df %>%
   theme_minimal()
 ```
 
-<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-4-4.png" width="90%" />
+<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-5-2.png" width="90%" />
 
 ``` r
 df %>%
@@ -148,7 +163,7 @@ df %>%
   theme_minimal()
 ```
 
-<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-4-5.png" width="90%" />
+<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-5-3.png" width="90%" />
 
 ## Random Forests
 
@@ -233,7 +248,7 @@ accuracy = sum(diag(confustion_matrix))/sum(confustion_matrix)
 cat("Accuracy",accuracy,"\n")
 ```
 
-    ## Accuracy 0.8932667
+    ## Accuracy 0.8923418
 
 ``` r
 confustion_matrix %>%
@@ -242,8 +257,8 @@ confustion_matrix %>%
 
 |              | controlled | uncontrolled |
 |:-------------|-----------:|-------------:|
-| controlled   |       4119 |          346 |
-| uncontrolled |        231 |          710 |
+| controlled   |       4124 |          356 |
+| uncontrolled |        226 |          700 |
 
 Confusion Matrix of randomForest
 
@@ -252,9 +267,22 @@ importance = varImp(randomForest_model)
 varImpPlot(randomForest_model, main = "The Gini Coefficient of the RF")
 ```
 
-<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-8-1.png" width="90%" />
+<img src="Main_Data_Analysis_files/figure-gfm/unnamed-chunk-9-1.png" width="90%" />
 
 ### Logistics Regression
+
+``` r
+convert_to_factor <- function(df, columns) {
+  df[columns] <- lapply(df[columns], factor)
+  return(df)
+}
+
+df_tidy = 
+  df_with_bp_2 |>
+  convert_to_factor(c("bp", "demo_age_cat", "demo_race", "demo_race_black", "demo_pregnant", "demo_gender", "htn_jnc7", "htn_accaha",   "htn_escesh",   "htn_aware",    "htn_resistant_jnc7",   "htn_resistant_accaha", "htn_resistant_jnc7_thz",   "htn_resistant_accaha_thz", "chol_measured_never",  "chol_measured_last", "chol_total_gteq_200",    "chol_total_gteq_240", "chol_hdl_low", "chol_trig_gteq_150", "chol_ldl_5cat",   "chol_ldl_lt_70",   "chol_ldl_gteq_70", "chol_ldl_lt_100",  "chol_ldl_gteq_100",    "chol_ldl_gteq_190",    "chol_ldl_persistent", "chol_nonhdl_5cat",  "chol_nonhdl_lt_100",   "chol_nonhdl_gteq_100", "chol_nonhdl_gteq_220", "chol_med_use", "chol_med_use_sr",  "chol_med_statin",  "chol_med_ezetimibe",   "chol_med_pcsk9i",  "chol_med_bile",    "chol_med_fibric_acid", "chol_med_atorvastatin",    "chol_med_simvastatin", "chol_med_rosuvastatin",    "chol_med_pravastatin", "chol_med_pitavastatin",    "chol_med_fluvastatin", "chol_med_lovastatin",  "chol_med_other",   "chol_med_addon_use",   "chol_med_addon_recommended_ahaacc",    "chol_med_statin_recommended_ahaacc",   "chol_med_recommended_ever",    "ascvd_risk_vh_ahaacc", "cc_smoke", "cc_bmi",   "cc_diabetes",  "cc_ckd",   "cc_cvd_mi",    "cc_cvd_chd",   "cc_cvd_stroke",    "cc_cvd_ascvd", "cc_cvd_hf",    "cc_cvd_any"))
+
+glm_complete = glm(bp ~ ., data = df_tidy, family = binomial(link = logit))
+```
 
 ``` r
 # Create binary variable for 'bp_uncontrolled_jnc7'
